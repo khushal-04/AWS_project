@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AWS Instance Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0a0e17;
+      --surface: #111827;
+      --surface2: #1a2235;
+      --border: #1e2d45;
+      --accent: #00d4ff;
+      --accent2: #7c3aed;
+      --green: #00ff88;
+      --yellow: #fbbf24;
+      --text: #e2e8f0;
+      --muted: #64748b;
+      --mono: 'IBM Plex Mono', monospace;
+      --sans: 'IBM Plex Sans', sans-serif;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+    body::before {
+      content: '';
+      position: fixed; inset: 0;
+      background-image:
+        linear-gradient(var(--border) 1px, transparent 1px),
+        linear-gradient(90deg, var(--border) 1px, transparent 1px);
+      background-size: 40px 40px;
+      opacity: 0.35;
+      z-index: 0; pointer-events: none;
+    }
+    body::after {
+      content: '';
+      position: fixed; top: -200px; right: -200px;
+      width: 600px; height: 600px;
+      background: radial-gradient(circle, rgba(0,212,255,0.07) 0%, transparent 70%);
+      z-index: 0; pointer-events: none;
+    }
+    .container {
+      position: relative; z-index: 1;
+      max-width: 1100px; margin: 0 auto; padding: 40px 24px;
+    }
+
+    /* Header */
+    .header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 40px; padding-bottom: 24px; border-bottom: 1px solid var(--border);
+      flex-wrap: wrap; gap: 12px;
+    }
+    .logo { display: flex; align-items: center; gap: 14px; }
+    .logo-icon {
+      width: 46px; height: 46px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border-radius: 10px; display: flex; align-items: center; justify-content: center;
+      font-size: 22px;
+    }
+    .logo-text h1 { font-size: 1.25rem; font-weight: 700; letter-spacing: -0.02em; }
+    .logo-text p {
+      font-family: var(--mono); font-size: 0.68rem; color: var(--accent);
+      letter-spacing: 0.12em; text-transform: uppercase;
+    }
+    .status-badge {
+      display: flex; align-items: center; gap: 8px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 999px; padding: 6px 14px;
+      font-family: var(--mono); font-size: 0.75rem;
+    }
+    .pulse {
+      width: 8px; height: 8px; background: var(--green);
+      border-radius: 50%; animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%,100% { opacity:1; box-shadow: 0 0 0 0 rgba(0,255,136,0.4); }
+      50% { opacity:.8; box-shadow: 0 0 0 6px rgba(0,255,136,0); }
+    }
+
+    /* Hero card */
+    .hero-card {
+      background: linear-gradient(135deg, var(--surface) 0%, var(--surface2) 100%);
+      border: 1px solid var(--border); border-radius: 16px; padding: 32px;
+      margin-bottom: 24px; position: relative; overflow: hidden;
+    }
+    .hero-card::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+      background: linear-gradient(90deg, var(--accent), var(--accent2), transparent);
+    }
+    .instance-id-label {
+      font-family: var(--mono); font-size: 0.65rem; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 0.12em; margin-bottom: 8px;
+    }
+    .instance-id-val {
+      font-family: var(--mono); font-size: 1.9rem; font-weight: 600;
+      color: var(--accent); letter-spacing: -0.02em; margin-bottom: 14px;
+      word-break: break-all; min-height: 2.4rem;
+    }
+    .hero-meta {
+      display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
+      color: var(--muted); font-size: 0.85rem;
+    }
+    .hero-meta strong { color: var(--text); }
+    .az-badge {
+      display: inline-flex; align-items: center; gap: 5px;
+      background: rgba(124,58,237,0.15); border: 1px solid rgba(124,58,237,0.3);
+      color: #a78bfa; font-family: var(--mono); font-size: 0.72rem;
+      padding: 3px 10px; border-radius: 4px;
+    }
+
+    /* Info Grid */
+    .grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+      gap: 16px; margin-bottom: 24px;
+    }
+    .card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; padding: 20px;
+      transition: border-color 0.2s, transform 0.2s;
+      animation: fadeIn 0.4s ease forwards; opacity: 0;
+    }
+    .card:hover { border-color: rgba(0,212,255,0.5); transform: translateY(-2px); }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .card-icon { font-size: 1.2rem; margin-bottom: 10px; }
+    .card-label {
+      font-family: var(--mono); font-size: 0.62rem; text-transform: uppercase;
+      letter-spacing: 0.12em; color: var(--muted); margin-bottom: 8px;
+    }
+    .card-value { font-family: var(--mono); font-size: 0.9rem; font-weight: 500; word-break: break-all; }
+    .card-value.accent { color: var(--accent); }
+    .card-value.green  { color: var(--green);  }
+    .card-value.yellow { color: var(--yellow); }
+
+    /* Counter row */
+    .counter-row {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 12px; padding: 24px;
+      display: flex; align-items: center; justify-content: space-between;
+      flex-wrap: wrap; gap: 16px; margin-bottom: 24px;
+    }
+    .counter-row h3 {
+      font-size: 0.75rem; font-weight: 600; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 4px;
+    }
+    .big-num {
+      font-family: var(--mono); font-size: 3rem; font-weight: 600;
+      color: var(--accent); line-height: 1;
+    }
+    .btn-group { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+    .refresh-btn {
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border: none; color: white; font-family: var(--mono); font-size: 0.8rem;
+      font-weight: 500; padding: 10px 22px; border-radius: 8px; cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s; letter-spacing: 0.05em;
+    }
+    .refresh-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+    .refresh-btn:active { transform: translateY(0); }
+    .refresh-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    #last-updated { font-family: var(--mono); font-size: 0.7rem; color: var(--muted); }
+
+    /* ALB banner */
+    .alb-banner {
+      background: rgba(0,212,255,0.05); border: 1px solid rgba(0,212,255,0.18);
+      border-radius: 12px; padding: 20px 24px; margin-bottom: 24px;
+      display: flex; align-items: flex-start; gap: 14px;
+    }
+    .alb-banner .icon { font-size: 1.4rem; flex-shrink: 0; margin-top: 2px; }
+    .alb-banner h4 { font-size: 0.875rem; font-weight: 600; color: var(--accent); margin-bottom: 5px; }
+    .alb-banner p { font-size: 0.8rem; color: var(--muted); line-height: 1.65; }
+    .alb-banner code {
+      font-family: var(--mono); background: var(--surface2);
+      padding: 1px 5px; border-radius: 3px; color: var(--text); font-size: 0.75rem;
+    }
+
+    /* Footer */
+    .footer {
+      margin-top: 40px; padding-top: 20px; border-top: 1px solid var(--border);
+      display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px;
+    }
+    .footer p { font-family: var(--mono); font-size: 0.68rem; color: var(--muted); }
+    .footer .accent-txt { color: var(--accent); }
+
+    /* Loading skeleton */
+    .skel {
+      display: inline-block; background: linear-gradient(90deg,var(--surface2) 25%,var(--border) 50%,var(--surface2) 75%);
+      background-size: 200% 100%; animation: shimmer 1.2s infinite;
+      border-radius: 4px; height: 1em; vertical-align: middle;
+    }
+    @keyframes shimmer { to { background-position: -200% 0; } }
+    .spinner {
+      display: inline-block; width: 14px; height: 14px;
+      border: 2px solid var(--border); border-top-color: var(--accent);
+      border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: middle;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="container">
+
+    <header class="header">
+      <div class="logo">
+        <div class="logo-icon">⚡</div>
+        <div class="logo-text">
+          <h1>Instance Dashboard</h1>
+          <p>AWS · Auto Scaling · ALB</p>
+        </div>
+      </div>
+      <div class="status-badge">
+        <div class="pulse"></div>
+        <span id="status-text">Live</span>
+      </div>
+    </header>
+
+    <!-- Hero -->
+    <div class="hero-card">
+      <div class="instance-id-label">EC2 Instance ID</div>
+      <div class="instance-id-val" id="instance-id">
+        <span class="skel" style="width:280px">&nbsp;</span>
+      </div>
+      <div class="hero-meta">
+        <span>🌍 Region: <strong id="region">—</strong></span>
+        <span id="az-wrap"></span>
+        <span>🖥️ Type: <strong id="instance-type">—</strong></span>
+      </div>
+    </div>
+
+    <!-- ALB hint -->
+    <div class="alb-banner">
+      <div class="icon">⚖️</div>
+      <div>
+        <h4>Load Balancer Active</h4>
+        <p>
+          Each refresh may be served by a <strong>different EC2 instance</strong> in your ASG.
+          Watch the <code>Instance ID</code> and <code>Availability Zone</code> change — that confirms ALB is distributing traffic.
+          Configure your Target Group health check to hit <code>/health</code> on port <code>3000</code>.
+        </p>
+      </div>
+    </div>
+
+    <!-- Info cards -->
+    <div class="grid">
+      <div class="card" style="animation-delay:0.05s">
+        <div class="card-icon">🔒</div>
+        <div class="card-label">Private IP</div>
+        <div class="card-value accent" id="private-ip"><span class="skel" style="width:100px">&nbsp;</span></div>
+      </div>
+      <div class="card" style="animation-delay:0.1s">
+        <div class="card-icon">🌐</div>
+        <div class="card-label">Public IP</div>
+        <div class="card-value" id="public-ip"><span class="skel" style="width:110px">&nbsp;</span></div>
+      </div>
+      <div class="card" style="animation-delay:0.15s">
+        <div class="card-icon">💾</div>
+        <div class="card-label">AMI ID</div>
+        <div class="card-value" id="ami-id" style="font-size:0.77rem"><span class="skel" style="width:130px">&nbsp;</span></div>
+      </div>
+      <div class="card" style="animation-delay:0.2s">
+        <div class="card-icon">🖥️</div>
+        <div class="card-label">Hostname</div>
+        <div class="card-value" id="hostname" style="font-size:0.77rem"><span class="skel" style="width:120px">&nbsp;</span></div>
+      </div>
+      <div class="card" style="animation-delay:0.25s">
+        <div class="card-icon">🟢</div>
+        <div class="card-label">Node.js Version</div>
+        <div class="card-value green" id="node-ver"><span class="skel" style="width:70px">&nbsp;</span></div>
+      </div>
+      <div class="card" style="animation-delay:0.3s">
+        <div class="card-icon">⏱️</div>
+        <div class="card-label">Process Uptime</div>
+        <div class="card-value yellow" id="uptime"><span class="skel" style="width:60px">&nbsp;</span></div>
+      </div>
+      <div class="card" style="animation-delay:0.35s">
+        <div class="card-icon">🕐</div>
+        <div class="card-label">Server Started</div>
+        <div class="card-value" id="start-time" style="font-size:0.72rem"><span class="skel" style="width:120px">&nbsp;</span></div>
+      </div>
+      <div class="card" style="animation-delay:0.4s">
+        <div class="card-icon">📡</div>
+        <div class="card-label">Platform</div>
+        <div class="card-value" id="platform"><span class="skel" style="width:60px">&nbsp;</span></div>
+      </div>
+    </div>
+
+    <!-- Request counter -->
+    <div class="counter-row">
+      <div>
+        <h3>Requests Served by This Instance</h3>
+        <div class="big-num" id="req-count">—</div>
+      </div>
+      <div class="btn-group">
+        <button class="refresh-btn" id="refresh-btn" onclick="loadData()">↻ Refresh</button>
+        <span id="last-updated">Auto-refreshes every 10s</span>
+      </div>
+    </div>
+
+    <footer class="footer">
+      <p>Powered by <span class="accent-txt">Node.js + Express</span> · Hosted on <span class="accent-txt">AWS EC2 + ALB + ASG</span></p>
+      <p id="ts-footer">—</p>
+    </footer>
+
+  </div>
+
+  <script>
+    function fmt(sec) {
+      var h = Math.floor(sec / 3600);
+      var m = Math.floor((sec % 3600) / 60);
+      var s = sec % 60;
+      if (h > 0) return h + "h " + m + "m";
+      if (m > 0) return m + "m " + s + "s";
+      return s + "s";
+    }
+
+    function setText(id, val) {
+      var el = document.getElementById(id);
+      if (el) el.textContent = val;
+    }
+
+    async function loadData() {
+      var btn = document.getElementById("refresh-btn");
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span> Loading';
+
+      try {
+        var res = await fetch("/api/info");
+        var d = await res.json();
+
+        setText("instance-id", d.instanceId);
+        setText("region", d.region);
+        setText("instance-type", d.instanceType);
+        setText("private-ip", d.privateIp);
+        setText("public-ip", d.publicIp === "N/A" ? "Not assigned" : d.publicIp);
+        setText("ami-id", d.amiId);
+        setText("hostname", d.hostname);
+        setText("node-ver", d.nodeVersion);
+        setText("uptime", fmt(d.uptime));
+        setText("platform", d.platform);
+        setText("req-count", d.requestCount.toLocaleString());
+        setText("start-time", new Date(d.serverStartTime).toLocaleString());
+        setText("ts-footer", "Last fetched: " + new Date(d.timestamp).toLocaleTimeString());
+        setText("last-updated", "Updated: " + new Date().toLocaleTimeString());
+
+        var azWrap = document.getElementById("az-wrap");
+        if (d.az !== "N/A") {
+          azWrap.innerHTML = '<span class="az-badge">📍 ' + d.az + '</span>';
+        }
+
+        if (!d.isEc2) {
+          setText("status-text", "Local Dev");
+        }
+      } catch (e) {
+        setText("status-text", "Error");
+        console.error(e);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = "↻ Refresh";
+      }
+    }
+
+    loadData();
+    setInterval(loadData, 10000);
+  </script>
+</body>
+</html>
