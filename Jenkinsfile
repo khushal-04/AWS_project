@@ -45,31 +45,24 @@ pipeline {
                 echo "S3 sync complete."
             }
         }
-
-        
+    
         stage('Trigger ASG Instance Refresh') {
             steps {
-                echo "Managing existing instance refreshes and starting a new rollout..."
+                echo "Starting ASG instance refresh..."
                 sh """
-                    # 1. Check for and cancel an active instance refresh to avoid blocking the pipeline
-                    echo "Checking for running instance refreshes..."
-                    aws autoscaling cancel-instance-refresh \
-                        --auto-scaling-group-name "${ASG_NAME}" \
-                        --region "${AWS_REGION}" 2>/dev/null || echo "No active refresh to cancel. Proceeding..."
-
-                    # 2. Start the new instance refresh
-                    echo "Starting ASG instance refresh..."
                     aws autoscaling start-instance-refresh \
-                        --auto-scaling-group-name "${ASG_NAME}" \
-                        --region "${AWS_REGION}" \
+                        --auto-scaling-group-name ${ASG_NAME} \
+                        --region ${AWS_REGION} \
                         --preferences '{
                             "MinHealthyPercentage": 50,
                             "InstanceWarmup": 120
                         }'
                 """
-                     echo "Instance refresh started. New instances will pull updated code from S3."
-    }
-}
+                echo "Instance refresh started. New instances will pull updated code from S3."
+            }
+
+        }
+       
 
         stage('Verify Refresh') {
             steps {
