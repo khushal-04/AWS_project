@@ -68,7 +68,7 @@ app.get("/api/info", async (req, res) => {
   });
 });
 
-app.get("/health", (req, res) => {
+ap.get("/health", (req, res) => {
   res.status(200).json({ status: "healthy", timestamp: new Date().toISOString() });
 });
 
