@@ -67,7 +67,7 @@ pipeline {
         stage('Verify Refresh') {
             steps {
                 echo "Waiting for instance refresh to complete..."
-                timeout(time: 10, unit: 'MINUTES') {
+                timeout(time: 15, unit: 'MINUTES') {
                     script {
                         def status = ""
                         while (status != "Successful") {
